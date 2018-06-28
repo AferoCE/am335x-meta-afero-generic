@@ -1,0 +1,16 @@
+[Unit]
+Description = Afero Hub Service
+After = afsecd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hubby
+ExecStartPre=/bin/systemctl stop serial-getty@ttyS3
+ExecStartPre=-/bin/cp /lib/firmware/ti-connectivity/TIInit_11.8.32.bts /lib/firmware
+ExecStartPre=-/bin/chmod 400 /lib/firmware/TIInit_11.8.32.bts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy = multi-user.target
+

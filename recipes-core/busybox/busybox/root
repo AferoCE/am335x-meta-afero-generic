@@ -1,0 +1,1 @@
+*/15 * * * * /bin/nice /usr/bin/logpush

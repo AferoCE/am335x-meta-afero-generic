@@ -1,0 +1,12 @@
+[Unit]
+Description=System Cron Job service
+Wants=busybox-crond.service
+
+[Service]
+ExecStart=/usr/sbin/crond -f -c /etc/crontabs -l 5
+
+[Install]
+WantedBy=multi-user.target
+Also=busybox-crond.service
+Alias=syslog.service
+

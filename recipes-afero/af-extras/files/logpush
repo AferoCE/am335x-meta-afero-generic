@@ -1,0 +1,136 @@
+#!/bin/sh
+#
+# logpush script
+#
+# Copyright (C) 2018 Afero, Inc. All rights reserved
+#
+# Script to push the logs file to a server in the Afero Cloud Platform.
+# The log files are deleted after they are pushed.
+#
+
+isdevbuild() {
+    if [ -f ${WHITELIST_FILE} ] ; then
+        if [ "x`/bin/grep '\.dev\.afero\.io' ${WHITELIST_FILE}`x" != "xx" ] ; then
+            return 0
+        fi
+        return 1
+    fi
+    return 1
+}
+
+get_stat() {
+    /bin/grep $1 /proc/$2/status | /usr/bin/awk '{ print $2 }'
+}
+
+list_stats() {
+    local STATS_FILE=/tmp/stats
+    /usr/bin/top -b -n 1 | logger
+
+    local i
+    for i in hubby wand freed connmgr attrd wifistad ; do
+        local PID=$(/bin/pidof ${i})
+        if [ "x${PID}x" != "xx" ] ; then
+            local VS=`get_stat VmSize ${PID}`
+            local RS=`get_stat VmRSS ${PID}`
+            /usr/bin/logger "memstats:n=${i},v=${VS},r=${RS}"
+        fi
+    done
+}
+
+cleanlogs() {
+    /usr/bin/find ${LOG_DIR} -name log-\*\.gz | sort -n > ${LOGFILES_FILE}
+    local num_logs=$(/usr/bin/wc -l ${LOGFILES_FILE} | awk '{ print $1 }')
+    local num_to_delete=$((${num_logs}-${FILE_LIMIT}))
+
+    if [ ${num_to_delete} -gt 0 ] ; then
+        /usr/bin/head -${num_to_delete} ${LOGFILES_FILE} | \
+            /usr/bin/xargs /bin/rm -f {} \;
+    fi
+}
+
+# Capture the log every fifteen minutes
+# Keep only 72 hours of logs
+FILE_LIMIT=288
+
+LOGFILES_FILE=/tmp/logfiles
+LOG_DIR=/afero_nv
+
+WHITELIST_FILE=/etc/config/afero_whitelist.txt
+
+PIDFILE=/var/run/logpush.pid
+
+PUSH_LOG=0
+ROTATE_HOUR=12
+
+
+if [ "x$1x" == "x-fx" ] ; then
+    PUSH_LOG=1
+fi
+
+# Log memory and process stats
+
+list_stats
+/usr/bin/logger rotating log
+
+# give some time for logs to get stored
+
+sleep 5
+
+# Create the log file
+LOG_PREFIX=${LOG_DIR}/log
+LOG_NAME=${LOG_PREFIX}-`date +%Y%m%d%H%M%S`.gz
+
+/bin/gzip - < /var/log/messages > ${LOG_NAME}
+:> /var/log/messages
+
+if [ "$(($(date +"%H") % ${ROTATE_HOUR}))" == 0  -a $(date +"%M") -le 5 ]; then
+    systemctl restart busybox-syslog.service
+fi
+
+if [ -f ${PIDFILE} ] ; then
+    local OLDPID=`/bin/cat ${PIDFILE}`
+    if [ ${OLDPID} -ne $$ ] ; then
+        /usr/bin/logger "logpush already running with PID ${OLDPID}; aborting"
+        exit
+    fi
+fi
+
+/bin/echo $$ > ${PIDFILE}
+
+# Clean stale logs
+cleanlogs
+
+if [ ${PUSH_LOG} -ne 0 ] ; then
+    # Get the device ID
+    acctid=`/bin/cat /tmp/afero_accountid`
+    res1=$?
+    devid=`/usr/bin/provision | /usr/bin/cut -d\" -f 4`
+    res2=$?
+    token=`/bin/cat /tmp/afero_token`
+    res3=$?
+
+    if [ ${res1} -eq 0 -a ${res2} -eq 0 -a ${res3} -eq 0 ] ; then
+
+        # Get environment
+        if isdevbuild ; then
+            url=squirrel.dev.afero.io
+        else
+            url=squirrel.usw2prod.afero.io
+        fi
+
+        for i in `ls ${LOG_PREFIX}*.gz` ; do
+            /usr/bin/logger pushing ${i}
+            /usr/bin/curl -u ${acctid}:${token} --tlsv1 -X PUT -H 'content-encoding: gzip' --cacert /etc/ssl/certs/DigiCert_Global_Root_CA.pem --connect-timeout 60 -m 60 --data-binary @${i} https://${url}/v2/logs/${devid}
+            res=$?
+            # Remove if successfully uploaded.
+            if [ $res -eq 0 ] ; then
+                /bin/rm ${i}
+            else
+                /usr/bin/logger "logpush:curl_error:$res"
+                break
+            fi
+        done
+    fi
+fi
+
+/bin/rm ${PIDFILE}

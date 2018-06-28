@@ -1,0 +1,20 @@
+#  file name: afsecd.service.bbgw
+#
+#  This file is part of afero initialization system script
+#  (for afsecd daemon). 
+#
+#  Copyright (C) 2018 Afero, Inc. All rights reserved
+
+[Unit]
+Description = Afero Security Daemon
+After = network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/afsecd -D /dev/i2c-2
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy = multi-user.target
+

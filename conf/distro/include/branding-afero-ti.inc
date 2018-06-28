@@ -1,0 +1,6 @@
+PREFERRED_PROVIDER_virtual/kernel = "linux-afero${ARAGO_KERNEL_SUFFIX}"
+PREFERRED_PROVIDER_virtual/kernel_am335x-evm = "linux-afero${ARAGO_KERNEL_SUFFIX}"
+PREFERRED_PROVIDER_virtual/kernel_am437x-evm = "linux-afero${ARAGO_KERNEL_SUFFIX}"
+PREFERRED_PROVIDER_virtual/kernel_am57xx-evm = "linux-afero${ARAGO_KERNEL_SUFFIX}"
+PREFERRED_PROVIDER_virtual/kernel_keystone = "linux-afero${ARAGO_KERNEL_SUFFIX}"
+PREFERRED_VERSION_linux-afero = "4.4%"

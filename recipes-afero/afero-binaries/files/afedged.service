@@ -1,0 +1,13 @@
+[Unit]
+Description = Afero Edge Daemon
+After = hubby.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/afedged
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy = multi-user.target
+
