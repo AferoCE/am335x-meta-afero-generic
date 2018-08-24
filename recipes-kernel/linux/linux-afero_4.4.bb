@@ -75,27 +75,30 @@ COMPATIBLE_MACHINE = "ti33x|ti43x|omap-a15|omap3|omap4|keystone"
 
 S = "${WORKDIR}/git"
 
-BRANCH = "processor-sdk-linux-03.00.00"
+SRC_URI = "git://git.ti.com/processor-sdk/processor-sdk-linux.git;protocol=git;branch=processor-sdk-linux-03.00.00"
+SRC_URI += " file://0001-Create-local-branch.patch"
+SRC_URI += " file://0002-add-wilink8-configuration-to-sdk3-defconfig.patch"
+SRC_URI += " file://0003-add-iptables-nat.patch"
+SRC_URI += " file://0004-add-BBGW-support.patch"
+SRC_URI += " file://0005-Workaround-for-edma_ccerrint-kernel-panic.patch"
+SRC_URI += " file://0006-HUB-848-Support-IPV4-Advanced-Router.patch"
 
 SRCREV = "3639bea54a4a1e1c572a1bde78facc4e37839c12"
+
 PV = "4.4.12+git${SRCPV}"
 
 # Append to the MACHINE_KERNEL_PR so that a new SRCREV will cause a rebuild
 MACHINE_KERNEL_PR_append = "d"
 PR = "${MACHINE_KERNEL_PR}"
 
-KERNEL_CONFIG_DIR = "${S}/ti_config_fragments"
+#KERNEL_CONFIG_DIR = "${S}/ti_config_fragments"
 
-KERNEL_CONFIG_FRAGMENTS_append_ti33x = " ${KERNEL_CONFIG_DIR}/am33xx_only.cfg"
-KERNEL_CONFIG_FRAGMENTS_append_ti43x = " ${KERNEL_CONFIG_DIR}/am43xx_only.cfg"
-KERNEL_CONFIG_FRAGMENTS_append_dra7xx = " ${KERNEL_CONFIG_DIR}/dra7_only.cfg"
-KERNEL_CONFIG_FRAGMENTS_append_k2g-evm = " ${KERNEL_CONFIG_DIR}/k2g_only.cfg"
+#KERNEL_CONFIG_FRAGMENTS_append_ti33x = " ${KERNEL_CONFIG_DIR}/am33xx_only.cfg"
+#KERNEL_CONFIG_FRAGMENTS_append_ti43x = " ${KERNEL_CONFIG_DIR}/am43xx_only.cfg"
+#KERNEL_CONFIG_FRAGMENTS_append_dra7xx = " ${KERNEL_CONFIG_DIR}/dra7_only.cfg"
+#KERNEL_CONFIG_FRAGMENTS_append_k2g-evm = " ${KERNEL_CONFIG_DIR}/k2g_only.cfg"
 
 MULTI_CONFIG_BASE_SUFFIX = ""
-
-inherit externalsrc
-EXTERNALSRC = "${TOPDIR}/../tisdk-linux"
-#SRC_URI += "file://defconfig"
 
 do_configure() {
     echo ${KERNEL_LOCALVERSION} > ${B}/.scmversion
@@ -103,5 +106,6 @@ do_configure() {
     echo ${KERNEL_LOCALVERSION}
 
     oe_runmake -C ${S} O=${B} tisdk_am335x-evm_defconfig
-    oe_runmake -C ${S} O=${B} prepare
+    [ -h ${STAGING_KERNEL_BUILDDIR}/build ] || ln -s ${B} ${STAGING_KERNEL_BUILDDIR}/build
 }
+

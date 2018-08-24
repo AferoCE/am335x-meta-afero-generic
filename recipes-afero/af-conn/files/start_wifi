@@ -1,5 +1,0 @@
-#!bin/sh
-
-[ -f /lib/firmware/ti-connectivity/wl18xx-conf.bin ] || /bin/cp /etc/config/wl18xx-conf.bin /lib/firmware/ti-connectivity
-
-/usr/share/wl18xx/load_wlcore.sh

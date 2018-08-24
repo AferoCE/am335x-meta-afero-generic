@@ -1,0 +1,26 @@
+From 82a0481368af684e2480241df9cf5affa8a31e66 Mon Sep 17 00:00:00 2001
+From: Clif Liu <clif@afero.io>
+Date: Tue, 21 Nov 2017 09:23:07 -0800
+Subject: [PATCH 5/6] Workaround for edma_ccerrint kernel panic
+
+---
+ drivers/dma/edma.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/dma/edma.c b/drivers/dma/edma.c
+index 04070ba..7e167f9 100644
+--- a/drivers/dma/edma.c
++++ b/drivers/dma/edma.c
+@@ -1537,9 +1537,6 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
+ 
+ 	dev_vdbg(ecc->dev, "dma_ccerr_handler\n");
+ 
+-	if (!edma_error_pending(ecc))
+-		return IRQ_NONE;
+-
+ 	while (1) {
+ 		/* Event missed register(s) */
+ 		for (j = 0; j < 2; j++) {
+-- 
+2.7.4
+

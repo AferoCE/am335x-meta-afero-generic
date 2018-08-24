@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# check parameter
+[ "x$1" != "x" ] || { /usr/bin/logger "No file provided" ; exit 1 ; }
+[ -f $1 ] || { /usr/bin/logger "File $1 does not exist" ; exit 1 ; }
+
+# get the partition where the new OS will go
+BOOT_PARTITION_DIR=/run/media/mmcblk0p1
+CURRENT_ROOT_PARTITION=`/bin/grep bootpart ${BOOT_PARTITION_DIR}/uEnv.txt | /usr/bin/cut -d '=' -f 2 | /usr/bin/cut -d ':' -f 2`
+
+if [ "x${CURRENT_ROOT_PARTITION}" = "x3" ] ; then
+    DESIRED_ROOT_PARTITION=4
+elif [ "x${CURRENT_ROOT_PARTITION}" = "x4" ] ; then
+    DESIRED_ROOT_PARTITION=3
+else
+    /usr/bin/logger "Unknown root partition $CURRENT_ROOT_PARTITION; exiting"
+    exit 1
+fi
+
+DESIRED_ROOT_PARTITION_DIR="/run/media/mmcblk0p${DESIRED_ROOT_PARTITION}"
+
+# clean out desired partition
+/usr/bin/logger "cleaning mmcblk0p${DESIRED_ROOT_PARTITION}"
+/bin/rm -rf $DESIRED_ROOT_PARTITION_DIR/*
+
+# untar contents of image to desired partition
+/usr/bin/logger "copying contents of $1 to mmcblk0p${DESIRED_ROOT_PARTITION}"
+/bin/tar xzf $1 -C $DESIRED_ROOT_PARTITION_DIR
+
+if [ $? -ne 0 ] ; then
+    /usr/bin/logger "Failed to untar contents, not switching to new partition"
+    /bin/rm $1
+else
+    /bin/echo "fdtfile=am335x-bonegreen-wireless.dtb" > ${BOOT_PARTITION_DIR}/uEnv.txt
+    /bin/echo "bootpart=0:${DESIRED_ROOT_PARTITION}" >> ${BOOT_PARTITION_DIR}/uEnv.txt
+    /bin/echo "finduuid=part uuid mmc 0:${DESIRED_ROOT_PARTITION} uuid" >> ${BOOT_PARTITION_DIR}/uEnv.txt
+    /usr/bin/logpush
+    /bin/sync
+    /bin/sync
+    /bin/sync
+    /sbin/reboot
+fi

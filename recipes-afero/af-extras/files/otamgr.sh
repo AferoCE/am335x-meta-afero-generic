@@ -21,6 +21,7 @@ perform_ota_update() {
     /bin/echo "full_ota" > $REBOOT_REASON_PATH
 
     # Perform the upgrade
+    /sbin/sysupgrade $image_path
 }
 
 reboot_system() {

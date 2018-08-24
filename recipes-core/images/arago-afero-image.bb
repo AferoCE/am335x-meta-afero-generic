@@ -37,22 +37,28 @@ IMAGE_INSTALL = " \
     bt-firmware \
     wl18xx-firmware \
     wlconf \
+    iw \
+    crda \
+    backports \
     af-ipc \
     af-util \
     attrd \
     af-conn \
-    afero-binaries \
+    af-sec \
+    af-edge \
+    otamgr \
+    hubby \
     af-extras \
     dropbear \
+    lrzsz \
 "
 
-IMAGE_INSTALL_remove += " wlconf"
-IMAGE_FEATURES += " package-management"
-
+IMAGE_FEATURES += " package-management debug-tweaks tools-debug eclipse-debug"
+IMAGE_FSTYPES = "tar.gz afimg"
 export IMAGE_BASENAME = "arago-afero-image"
 
 inherit core-image
-
+inherit afimg
 
 ROOTFS_POSTPROCESS_COMMAND += " afero_dl_generate_sysctl_config ; afero_fix_systemd_network_scripts "
 

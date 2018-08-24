@@ -9,6 +9,7 @@ LIC_FILES_CHKSUM = ""
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
 
 inherit externalsrc autotools
+
 EXTERNALSRC = "${TOPDIR}/../af-util/pkg"
 
 EXTRA_OECONF = "BUILD_TARGET=${BUILD_TARGET}"

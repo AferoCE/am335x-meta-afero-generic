@@ -1,0 +1,12 @@
+[Unit]
+Description = Afero Connectivity
+After = attrd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/af_conn_watcher
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy = multi-user.target

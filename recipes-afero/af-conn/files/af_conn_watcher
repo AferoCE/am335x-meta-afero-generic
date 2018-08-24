@@ -1,0 +1,60 @@
+#!/bin/sh
+
+run_connmgr() {
+    /usr/bin/connmgr
+}
+
+run_wand() {
+    /usr/bin/wand
+}
+
+run_wifistad() {
+    /bin/rm -f /tmp/wpa_ctrl*
+    /usr/bin/wifistad
+}
+
+run_wpa_supplicant() {
+    /usr/sbin/wpa_supplicant -e/usr/share/wl18xx/entropy.bin -iwlan0 -Dnl80211 -c/usr/share/wl18xx/wpa_supplicant.conf
+}
+
+if [ "x$1" != "x" ] ; then
+    while true ; do
+        $1
+        sleep 5
+    done
+fi
+
+# Determine if the hardware supports WAN or not
+/usr/bin/afero_net_cap
+WAN_SUPPORTED=$(($? & 0x2))
+
+# Set up the wl18xx-conf.bin file
+/usr/bin/configure_wifi.sh
+
+# Load the wlcore kernel modules
+/usr/share/wl18xx/load_wlcore.sh
+
+# Shutdown the usb0 network if it exists
+/sbin/ifconfig usb0 && /sbin/ifconfig usb0 down
+
+# Create the Afero NV partition or link it to the real partition
+if [ -d /run/media/mmcblk0p2 ] ; then
+    /bin/rm -rf /afero_nv
+    /bin/ln -s /run/media/mmcblk0p2 /afero_nv
+else
+    [ -d /afero_nv ] || /bin/rm -f /afero_nv
+    /bin/mkdir -p /afero_nv
+fi
+
+# Start the WPA supplicant
+$0 run_wpa_supplicant &
+$0 run_wifistad &
+if [ $WAN_SUPPORTED -ne 0 ] ; then
+    $0 run_wand &
+fi
+
+while true
+do
+    run_connmgr
+    /bin/sleep 5
+done
