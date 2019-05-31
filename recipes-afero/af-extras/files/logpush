@@ -8,23 +8,45 @@
 # The log files are deleted after they are pushed.
 #
 
-isdevbuild() {
-    if [ -f ${WHITELIST_FILE} ] ; then
-        if [ "x`/bin/grep '\.dev\.afero\.io' ${WHITELIST_FILE}`x" != "xx" ] ; then
-            return 0
-        fi
-        return 1
+DATE_CMD=/bin/date
+AWK_CMD=/usr/bin/awk
+LOGGER_CMD=/usr/bin/logger
+GREP_CMD=/bin/grep
+CAT_CMD=/bin/cat
+EXPR_CMD=/usr/bin/expr
+RM_CMD=/bin/rm
+HEAD_CMD=/usr/bin/head
+TAIL_CMD=/usr/bin/tail
+WC_CMD=/usr/bin/wc
+ECHO_CMD=/bin/echo
+LS_CMD=/bin/ls
+ATTRC_CMD=/usr/bin/attrc
+
+update_time() {
+    local date_format="+%Y-%m-%d %H:%M:%S"
+    local last_file=`$LS_CMD -ltrp $LOG_DIR/ | $GREP_CMD -v '/' | $TAIL_CMD -1 | $AWK_CMD '{ print $9 }'`
+    [ "x$last_file" = "x" ] && return 0
+    local last_file_mtime=`$DATE_CMD -r $LOG_DIR/$last_file "$date_format"`
+    local last_file_sec=`$DATE_CMD -r $LOG_DIR/$last_file +%s`
+    local now_sec=`$DATE_CMD -u +%s`
+    local now_time=`$DATE_CMD -u "$date_format"`
+    if [ $now_sec -lt $last_file_sec ] ; then
+        # update the time
+        $DATE_CMD "$last_file_mtime"
+        $LOGGER_CMD "time ($now_time) was behind the time of the last log ($last_file_mtime)"
+        $LOGGER_CMD "updated time to $last_file_mtime"
+    else
+        $LOGGER_CMD "date not modified"
     fi
-    return 1
 }
 
 get_stat() {
-    /bin/grep $1 /proc/$2/status | /usr/bin/awk '{ print $2 }'
+    $GREP_CMD $1 /proc/$2/status | $AWK_CMD '{ print $2 }'
 }
 
 list_stats() {
     local STATS_FILE=/tmp/stats
-    /usr/bin/top -b -n 1 | logger
+    /usr/bin/top -b -n 1 | $LOGGER_CMD
 
     local i
     for i in hubby wand freed connmgr attrd wifistad ; do
@@ -32,105 +54,132 @@ list_stats() {
         if [ "x${PID}x" != "xx" ] ; then
             local VS=`get_stat VmSize ${PID}`
             local RS=`get_stat VmRSS ${PID}`
-            /usr/bin/logger "memstats:n=${i},v=${VS},r=${RS}"
+            $LOGGER_CMD "memstats:n=${i},v=${VS},r=${RS}"
         fi
     done
 }
 
-cleanlogs() {
-    /usr/bin/find ${LOG_DIR} -name log-\*\.gz | sort -n > ${LOGFILES_FILE}
-    local num_logs=$(/usr/bin/wc -l ${LOGFILES_FILE} | awk '{ print $1 }')
-    local num_to_delete=$((${num_logs}-${FILE_LIMIT}))
-
+clean_logs() {
+    local cleanlist_file=/tmp/log_clean_list
+    /usr/bin/find ${LOG_DIR} -name log-\*\.gz | sort -n > ${cleanlist_file}
+    local num_logs=`$WC_CMD -l ${cleanlist_file} | $AWK_CMD '{ print $1 }'`
+    local num_to_delete=`$EXPR_CMD ${num_logs} - ${FILE_LIMIT}`
     if [ ${num_to_delete} -gt 0 ] ; then
-        /usr/bin/head -${num_to_delete} ${LOGFILES_FILE} | \
-            /usr/bin/xargs /bin/rm -f {} \;
+        $LOGGER_CMD "number of log files is $num_logs, which exceeds the limit of $FILE_LIMIT files; removing $num_to_delete files"
+        $HEAD_CMD -${num_to_delete} ${cleanlist_file} | \
+            /usr/bin/xargs $RM_CMD -f {} \;
     fi
+    $RM_CMD ${cleanlist_file}
 }
 
+source /etc/logpush.conf
+
 # Capture the log every fifteen minutes
-# Keep only 72 hours of logs
-FILE_LIMIT=288
+# Keep only $FILE_LIMIT log files
+if [ -d $LOG_PRIMARY_DIR ] ; then
+    LOG_DIR=$LOG_PRIMARY_DIR
+    FILE_LIMIT=$LOG_PRIMARY_FILES
+else
+    LOG_DIR=$LOG_CONTINGENT_DIR
+    FILE_LIMIT=$LOG_CONTINGENT_FILES
+fi
 
-LOGFILES_FILE=/tmp/logfiles
-LOG_DIR=/afero_nv
-
-WHITELIST_FILE=/etc/config/afero_whitelist.txt
-
-PIDFILE=/var/run/logpush.pid
-
-PUSH_LOG=0
+PID_FILE=/var/run/logpush.pid
+MIME_TYPE=application/x-gzip
+MEDIA_TIMEOUT=5
+MEDIA_TRIES=3
 ROTATE_HOUR=12
+MEDIA_UPLOAD_REQUEST=1303
+MEDIA_UPLOAD_RESPONSE=1304
 
+update_time
 
-if [ "x$1x" == "x-fx" ] ; then
-    PUSH_LOG=1
+if [ "$#" -eq "3" ] ; then
+    if [ "$2" -eq "65012" -a "${3:0:2}" = "0a" ] ; then
+        PUSH_LOGS=1
+    fi
+elif [ "x$1" == "x-s" ] ; then
+    exit
 fi
 
 # Log memory and process stats
 
+$LOGGER_CMD LOG_DIR=$LOG_DIR,FILE_LIMIT=$FILE_LIMIT
 list_stats
-/usr/bin/logger rotating log
+$LOGGER_CMD rotating log
 
 # give some time for logs to get stored
-
 sleep 5
 
 # Create the log file
 LOG_PREFIX=${LOG_DIR}/log
-LOG_NAME=${LOG_PREFIX}-`date +%Y%m%d%H%M%S`.gz
+LOG_NAME=${LOG_PREFIX}-`$DATE_CMD +%Y%m%d%H%M%S`.gz
 
 /bin/gzip - < /var/log/messages > ${LOG_NAME}
 :> /var/log/messages
 
-if [ "$(($(date +"%H") % ${ROTATE_HOUR}))" == 0  -a $(date +"%M") -le 5 ]; then
-    systemctl restart busybox-syslog.service
+if [ "`$EXPR_CMD $(date +"%H") % ${ROTATE_HOUR}`" == 0 -a `$EXPR_CMD $(date +"%M")` -le 5 ]; then
+    $SYSLOG_RESTART_CMD
 fi
-
-if [ -f ${PIDFILE} ] ; then
-    local OLDPID=`/bin/cat ${PIDFILE}`
-    if [ ${OLDPID} -ne $$ ] ; then
-        /usr/bin/logger "logpush already running with PID ${OLDPID}; aborting"
-        exit
-    fi
-fi
-
-/bin/echo $$ > ${PIDFILE}
 
 # Clean stale logs
-cleanlogs
+clean_logs
 
-if [ ${PUSH_LOG} -ne 0 ] ; then
-    # Get the device ID
-    acctid=`/bin/cat /tmp/afero_accountid`
-    res1=$?
-    devid=`/usr/bin/provision | /usr/bin/cut -d\" -f 4`
-    res2=$?
-    token=`/bin/cat /tmp/afero_token`
-    res3=$?
+if [ "x$PUSH_LOGS" != "x" ] ; then
+    # Lock out other logpush -f invocations
+    set -o noclobber
+    $ECHO_CMD $$ > $PID_FILE
+    RES=$?
+    set +o noclobber
+    if [ $RES -ne 0 ] ; then
+        $LOGGER_CMD logpush already running with pid `cat $PID_FILE`
+        exit
+    fi
 
-    if [ ${res1} -eq 0 -a ${res2} -eq 0 -a ${res3} -eq 0 ] ; then
-
-        # Get environment
-        if isdevbuild ; then
-            url=squirrel.dev.afero.io
-        else
-            url=squirrel.usw2prod.afero.io
-        fi
-
-        for i in `ls ${LOG_PREFIX}*.gz` ; do
-            /usr/bin/logger pushing ${i}
-            /usr/bin/curl -u ${acctid}:${token} --tlsv1 -X PUT -H 'content-encoding: gzip' --cacert /etc/ssl/certs/DigiCert_Global_Root_CA.pem --connect-timeout 60 -m 60 --data-binary @${i} https://${url}/v2/logs/${devid}
-            res=$?
-            # Remove if successfully uploaded.
-            if [ $res -eq 0 ] ; then
-                /bin/rm ${i}
+    for i in `$LS_CMD ${LOG_PREFIX}*.gz` ; do
+        # Prepare file for uploading
+        SHA_SUM=`/usr/bin/openssl sha256 $i | $AWK_CMD '{ print $2 }'`
+        $LOGGER_CMD notifying cloud of file to upload: $i
+        # Notify media service
+        ( sleep 1; $ATTRC_CMD set $MEDIA_UPLOAD_REQUEST "$MIME_TYPE,logger_syslog,$SHA_SUM" ) &
+        COUNT=0
+        while [ $COUNT -lt $MEDIA_TRIES ] ; do
+            # Wait for media service to respond
+            RET=`$ATTRC_CMD wait $MEDIA_UPLOAD_RESPONSE $MEDIA_TIMEOUT`
+            RES=$?
+            if [ $RES -eq 0 ] ; then
+                RET_VALUE=`$ECHO_CMD $RET | $AWK_CMD '{ print $2 }'`
+                RET_SHA=`$ECHO_CMD $RET_VALUE | $AWK_CMD -F, '{ print $2 }'`
+                RET_URL=`$ECHO_CMD $RET_VALUE | $AWK_CMD -F, '{ print $3 }'`
+                if [ "x$RET_SHA" == "x$SHA_SUM" ] ; then
+                    break
+                else
+                    RES=1 # Mark non matching SHA as a failure
+                fi
             else
-                /usr/bin/logger "logpush:curl_error:$res"
                 break
             fi
+            COUNT=`$EXPR_CMD $COUNT + 1`
         done
-    fi
+
+        if [ $RES -eq 0 ] ; then
+            $LOGGER_CMD sending log file $i to $RET_URL
+            /usr/bin/curl -vv --cacert /etc/ssl/certs/DigiCert_Global_Root_CA.pem -tlsv1.2 --data-binary @$i $RET_URL
+            RES=$?
+            if [ $RES -eq 0 ] ; then
+                $RM_CMD $i
+            else
+                # upload failed; log error and stop uploading
+                $LOGGER_CMD "logpush:curl_error=$res; giving up"
+                break
+            fi
+        else
+            $LOGGER_CMD "logpush:no response from media service after $MEDIA_TIMEOUT seconds; giving up"
+            break
+        fi
+    done
+
+    # Release lock
+    $RM_CMD $PID_FILE
 fi
 
-/bin/rm ${PIDFILE}

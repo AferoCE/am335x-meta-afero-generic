@@ -4,39 +4,121 @@
 [ "x$1" != "x" ] || { /usr/bin/logger "No file provided" ; exit 1 ; }
 [ -f $1 ] || { /usr/bin/logger "File $1 does not exist" ; exit 1 ; }
 
-# get the partition where the new OS will go
-BOOT_PARTITION_DIR=/run/media/mmcblk0p1
-CURRENT_ROOT_PARTITION=`/bin/grep bootpart ${BOOT_PARTITION_DIR}/uEnv.txt | /usr/bin/cut -d '=' -f 2 | /usr/bin/cut -d ':' -f 2`
+IMAGE_NAME=$1
 
-if [ "x${CURRENT_ROOT_PARTITION}" = "x3" ] ; then
-    DESIRED_ROOT_PARTITION=4
-elif [ "x${CURRENT_ROOT_PARTITION}" = "x4" ] ; then
-    DESIRED_ROOT_PARTITION=3
-else
-    /usr/bin/logger "Unknown root partition $CURRENT_ROOT_PARTITION; exiting"
+# get header name
+HEADER_NAME=`/bin/echo $1 | /bin/sed 's/\.img$/\.hdr/'`
+
+# make sure header exists and is the correct length
+if [ ! -f $HEADER_NAME ] ; then
+    /usr/bin/logger "Header file does not exist"
     exit 1
 fi
 
-DESIRED_ROOT_PARTITION_DIR="/run/media/mmcblk0p${DESIRED_ROOT_PARTITION}"
+if [ `/usr/bin/wc -c $HEADER_NAME | /usr/bin/awk '{ print $1 }'` -ne 216 ] ; then
+    /usr/bin/logger "Header is not the correct size"
+    exit 1
+fi
 
-# clean out desired partition
-/usr/bin/logger "cleaning mmcblk0p${DESIRED_ROOT_PARTITION}"
-/bin/rm -rf $DESIRED_ROOT_PARTITION_DIR/*
+# get the update type
+UPDATE_TYPE=`/usr/bin/hexdump -C $HEADER_NAME | /usr/bin/head -1 | /usr/bin/awk '{ print $2 }'`
 
-# untar contents of image to desired partition
-/usr/bin/logger "copying contents of $1 to mmcblk0p${DESIRED_ROOT_PARTITION}"
-/bin/tar xzf $1 -C $DESIRED_ROOT_PARTITION_DIR
+ACTION="none"
 
-if [ $? -ne 0 ] ; then
-    /usr/bin/logger "Failed to untar contents, not switching to new partition"
-    /bin/rm $1
-else
-    /bin/echo "fdtfile=am335x-bonegreen-wireless.dtb" > ${BOOT_PARTITION_DIR}/uEnv.txt
-    /bin/echo "bootpart=0:${DESIRED_ROOT_PARTITION}" >> ${BOOT_PARTITION_DIR}/uEnv.txt
-    /bin/echo "finduuid=part uuid mmc 0:${DESIRED_ROOT_PARTITION} uuid" >> ${BOOT_PARTITION_DIR}/uEnv.txt
-    /usr/bin/logpush
-    /bin/sync
-    /bin/sync
-    /bin/sync
-    /sbin/reboot
+case $UPDATE_TYPE in
+    05)
+        ACTION="tar"
+        ;;
+#    00)
+#        ACTION="opkg"
+#        ;;
+    *)
+        ACTION="none"
+        ;;
+esac
+
+if [ "x$ACTION" = "xopkg" ] ; then
+    # These are in the order in which the packages should be installed
+    # The list is reversed for removal
+    PACKAGES=" \
+        af-extras_1.0-r0.*_cortexa8hf-neon.ipk \
+        libaf-util0_1.0-r0.*_cortexa8hf-neon.ipk \
+        af-ipc_1.0-r0.*_cortexa8hf-neon.ipk \
+        attrd_1.0-r0.*_cortexa8hf-neon.ipk \
+        af-sec_1.0-r0.*_cortexa8hf-neon.ipk \
+        af-conn_1.0-r0.*_cortexa8hf-neon.ipk \
+        otamgr_1.0-r0.*_cortexa8hf-neon.ipk \
+        hubby_1.0-r0.*_cortexa8hf-neon.ipk \
+        af-edge_1.0-r0.*_cortexa8hf-neon.ipk \
+    "
+
+    OPKG_DIR=/tmp/opkg_$$
+
+    /bin/rm -rf $OPKG_DIR
+    /bin/mkdir -p $OPKG_DIR
+    /bin/tar xf $IMAGE_NAME -C $OPKG_DIR
+    cd $OPKG_DIR
+
+    # Create list of packages in removal order
+    for i in $PACKAGES ; do
+        /bin/echo $i | /bin/sed 's/_.*//' > first
+        if [ -f rest ] ; then
+            /bin/cat rest >> first
+        fi
+        /bin/mv first rest
+    done
+
+    # Remove the packages
+    for i in `cat rest` ; do
+        /usr/bin/opkg remove $i
+    done
+    /bin/rm rest
+
+    # Install the new packages
+    for i in $PACKAGES ; do
+        /usr/bin/opkg install $i
+    done
+
+    cd -
+    rm -rf $OPKG_DIR
+    rm $IMAGE_NAME
+    rm $HEADER_NAME
+
+elif [ "x$ACTION" = "xtar" ] ; then
+    # get the partition where the new OS will go
+    BOOT_PARTITION_DIR=/run/media/mmcblk0p1
+    CURRENT_ROOT_PARTITION=`/bin/grep bootpart ${BOOT_PARTITION_DIR}/uEnv.txt | /usr/bin/cut -d '=' -f 2 | /usr/bin/cut -d ':' -f 2`
+
+    if [ "x${CURRENT_ROOT_PARTITION}" = "x3" ] ; then
+        DESIRED_ROOT_PARTITION=4
+    elif [ "x${CURRENT_ROOT_PARTITION}" = "x4" ] ; then
+        DESIRED_ROOT_PARTITION=3
+    else
+        /usr/bin/logger "Unknown root partition $CURRENT_ROOT_PARTITION; exiting"
+        exit 1
+    fi
+
+    DESIRED_ROOT_PARTITION_DIR="/run/media/mmcblk0p${DESIRED_ROOT_PARTITION}"
+
+    # clean out desired partition
+    /usr/bin/logger "cleaning mmcblk0p${DESIRED_ROOT_PARTITION}"
+    /bin/rm -rf $DESIRED_ROOT_PARTITION_DIR/*
+
+    # untar contents of image to desired partition
+    /usr/bin/logger "copying contents of $1 to mmcblk0p${DESIRED_ROOT_PARTITION}"
+    /bin/tar xzf $IMAGE_NAME -C $DESIRED_ROOT_PARTITION_DIR
+
+    if [ $? -ne 0 ] ; then
+        /usr/bin/logger "Failed to untar contents, not switching to new partition"
+        /bin/rm $IMAGE_NAME
+    else
+        /bin/echo "fdtfile=am335x-bonegreen-wireless.dtb" > ${BOOT_PARTITION_DIR}/uEnv.txt
+        /bin/echo "bootpart=0:${DESIRED_ROOT_PARTITION}" >> ${BOOT_PARTITION_DIR}/uEnv.txt
+        /bin/echo "finduuid=part uuid mmc 0:${DESIRED_ROOT_PARTITION} uuid" >> ${BOOT_PARTITION_DIR}/uEnv.txt
+        /usr/bin/logpush
+        /bin/sync
+        /bin/sync
+        /bin/sync
+        /sbin/reboot
+    fi
 fi

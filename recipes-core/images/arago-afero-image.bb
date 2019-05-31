@@ -60,7 +60,7 @@ export IMAGE_BASENAME = "arago-afero-image"
 inherit core-image
 inherit afimg
 
-ROOTFS_POSTPROCESS_COMMAND += " afero_dl_generate_sysctl_config ; afero_fix_systemd_network_scripts "
+ROOTFS_POSTPROCESS_COMMAND += " afero_dl_generate_sysctl_config ; afero_fix_systemd_network_scripts ; afero_add_hub_version ; afero_modify_resolved ; afero_modify_crontab"
 
 afero_dl_generate_sysctl_config() {
     # systemd sysctl config
@@ -98,5 +98,42 @@ afero_fix_systemd_network_scripts() {
         echo >> ${IMAGE_60_USB_NETWORK}
         echo "[DHCP]" >> ${IMAGE_60_USB_NETWORK}
         echo "ClientIdentifier=mac" >> ${IMAGE_60_USB_NETWORK}
+    fi
+}
+
+afero_add_hub_version() {
+    # Install the hub version
+    if [ "x${HUB_VERSION}" != "x" ] ; then
+        DEST_FILE="${IMAGE_ROOTFS}${sysconfdir}/full_ota_record.json"
+        echo '{' > ${DEST_FILE}
+        echo "    \"type\" : 5," >> ${DEST_FILE}
+        echo "    \"versionNumber\" : \"${HUB_VERSION}\"" >> ${DEST_FILE}
+        echo '}' >> ${DEST_FILE}
+    fi
+}
+
+afero_modify_resolved() {
+    RESOLV_FILE="${IMAGE_ROOTFS}${sysconfdir}/systemd/resolved.conf"
+    # Remove the DNS line
+    if [ -e $RESOLV_FILE ] ; then
+        sed 's/#DNS=/DNS=/' -i $RESOLV_FILE
+        sed 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844/' -i $RESOLV_FILE
+    fi
+}
+
+afero_modify_crontab() {
+    CRONTAB_ROOT_FILE="${IMAGE_ROOTFS}${sysconfdir}/crontabs/root"
+    CHECK_AF_SERVICE_FILE="${IMAGE_ROOTFS}${bindir}/check-af-services.sh"
+    #
+    # Added the check-af-service.sh line
+    #
+    if [ -e $CRONTAB_ROOT_FILE ] ; then
+        echo " *** Find the crontab/root file"
+        if [ -e $CHECK_AF_SERVICE_FILE ] ; then
+            echo " *** Find the check-af-services.sh file "
+
+            echo -n >> ${CRONTAB_ROOT_FILE}
+            echo "* * * * * /usr/bin/check-af-services.sh" >> ${CRONTAB_ROOT_FILE}
+        fi
     fi
 }

@@ -22,9 +22,9 @@ SYSTEMD_SERVICE_${PN} = " afsecd.service"
 do_install() {
     # install libafwp.so
     install -d ${D}${libdir}
-    install -Dm 755 ${S}/${BUILD_TARGET}${libdir}/libafwp.so.0.0.0 ${D}${libdir}
-    ln -s libafwp.so.0.0.0 ${D}${libdir}/libafwp.so
-    ln -s libafwp.so.0.0.0 ${D}${libdir}/libafwp.so.0
+    install -Dm 755 ${S}/${BUILD_TARGET}${libdir}/libafwp.a ${D}${libdir}
+    #ln -s libafwp.so.0.0.0 ${D}${libdir}/libafwp.so
+    #ln -s libafwp.so.0.0.0 ${D}${libdir}/libafwp.so.0
 
     # install afwp.h
     install -d ${D}${includedir}
@@ -41,4 +41,4 @@ do_install() {
     install -m 644 ${WORKDIR}/afsecd.service ${D}${systemd_system_unitdir}
 }
 
-FILES_${PN} += " ${libdir}/libafwp.so ${libdir}/libafwp.so.0"
+#FILES_${PN} += " ${libdir}/libafwp.so ${libdir}/libafwp.so.0"
