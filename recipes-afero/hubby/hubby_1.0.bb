@@ -9,7 +9,7 @@ LIC_FILES_CHKSUM = ""
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
 
 SRC_URI = "git://git@github.com/AferoCE/am335x-binaries-hubby;protocol=ssh"
-SRCREV = "902bfe48d35280dbe47804d6cad37db190d8e301"
+SRCREV = "69482435d4d44a495c67a05ed4bc4f562ef79a8c"
 SRC_URI += " file://hubby.service"
 
 S = "${WORKDIR}/git"
