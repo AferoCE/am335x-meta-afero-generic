@@ -31,8 +31,7 @@ do_install() {
     install -Dm 755 ${WORKDIR}/sysupgrade ${D}${base_sbindir}
     install -Dm 644 ${WORKDIR}/logpush.attrd ${D}${sysconfdir}/af_attr.d/logpush
 
-    if [ "x${BUILD_PROFILE}" = "xpotenco" ] ; then
-        install -Dm 755 ${WORKDIR}/check-af-services.sh ${D}${bindir}
-    fi
+    install -Dm 755 ${WORKDIR}/check-af-services.sh ${D}${bindir}
+    
 }
 
