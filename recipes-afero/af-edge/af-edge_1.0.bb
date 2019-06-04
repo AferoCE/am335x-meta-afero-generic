@@ -18,7 +18,7 @@ S = "${WORKDIR}/git"
 inherit systemd
 
 SYSTEMD_PACKAGES = "${PN}"
-SYSTEMD_SERVICE_${PN} = " afedged.service"
+SYSTEMD_SERVICE_${PN} = " edged.service"
 
 do_install() {
     # Install aflib (libaf_edge.so)
