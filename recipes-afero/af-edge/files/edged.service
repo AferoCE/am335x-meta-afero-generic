@@ -4,7 +4,7 @@ After = hubby.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/afedged
+ExecStart=/usr/bin/edge_watcher
 Restart=always
 RestartSec=5
 

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+while true ; do
+   if [ -e /afero_nv/no_edge ] ; then
+     /bin/sleep 3600
+   elif [ -f /usr/bin/edged ] ; then
+     /usr/bin/edged
+     /bin/sleep 5
+   fi
+done

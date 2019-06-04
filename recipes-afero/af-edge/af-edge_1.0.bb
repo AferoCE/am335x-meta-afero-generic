@@ -9,8 +9,9 @@ LIC_FILES_CHKSUM = ""
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
 
 SRC_URI = "git://git@github.com/AferoCE/am335x-binaries-af-edge;protocol=ssh"
-SRCREV = "27395ec8f8965df927eb31bb1f25ab890f45b845"
-SRC_URI += " file://afedged.service"
+SRCREV = "caac09be411db04947481d381db7b5f3fa6d70ae"
+SRC_URI += " file://edged.service"
+SRC_URI += " file://edge_watcher"
 
 S = "${WORKDIR}/git"
 
@@ -18,9 +19,6 @@ inherit systemd
 
 SYSTEMD_PACKAGES = "${PN}"
 SYSTEMD_SERVICE_${PN} = " afedged.service"
-
-# TODO add control to start up afedged
-# TODO add control to include afedged
 
 do_install() {
     # Install aflib (libaf_edge.so)
@@ -31,15 +29,15 @@ do_install() {
 
     # Install aflib.h
     install -d ${D}${includedir}
-    install -Dm 644 ${S}/${BUILD_TARGET}${includedir}/aflib.h ${D}${includedir}
+    install -Dm 644 ${S}/${BUILD_TARGET}${includedir}/*.h ${D}${includedir}
 
     # Install edge daemon
     install -d ${D}${bindir}
-    install -Dm 755 ${S}/${BUILD_TARGET}${bindir}/afedged ${D}${bindir}
+    install -Dm 755 ${WORKDIR}/edge_watcher ${D}${bindir}
 
     # Install afedged systemd script
     install -d ${D}${systemd_system_unitdir}
-    install -Dm 644 ${WORKDIR}/afedged.service ${D}${systemd_system_unitdir}
+    install -Dm 644 ${WORKDIR}/edged.service ${D}${systemd_system_unitdir}
 }
 
 FILES_${PN} += " ${libdir}/libaf_edge.so ${libdir}/libaf_edge.so.0"
