@@ -4,7 +4,7 @@ After = attrd.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/af_conn_watcher
+ExecStart=/usr/lib/af-conn/af_conn_watcher
 Restart=always
 RestartSec=5
 

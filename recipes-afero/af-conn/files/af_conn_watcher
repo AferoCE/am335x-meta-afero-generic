@@ -25,11 +25,11 @@ if [ "x$1" != "x" ] ; then
 fi
 
 # Determine if the hardware supports WAN or not
-/usr/bin/afero_net_cap
+/usr/lib/af-conn/net_capabilities
 WAN_SUPPORTED=$(($? & 0x2))
 
 # Set up the wl18xx-conf.bin file
-/usr/bin/configure_wifi.sh
+/usr/lib/af-conn/configure_wifi.sh
 
 # Load the wlcore kernel modules
 /usr/share/wl18xx/load_wlcore.sh

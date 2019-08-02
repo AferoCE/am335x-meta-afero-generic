@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ ! -f /etc/wifi-configured ] ; then
+if [ ! -f /etc/af-conn/wifi-configured ] ; then
 	/sbin/rmmod wlcore_sdio
 	cd /usr/sbin/wlconf
 	./wlconf -o /lib/firmware/ti-connectivity/wl18xx-conf.bin -I /usr/sbin/wlconf/official_inis/WL1835MOD_INI.ini
@@ -11,5 +11,5 @@ if [ ! -f /etc/wifi-configured ] ; then
 	./wlconf -i /lib/firmware/ti-connectivity/wl18xx-conf.bin -o /lib/firmware/ti-connectivity/wl18xx-conf.bin -s core.conn.sta_sleep_auth=0
 	cd -
 	/sbin/modprobe wlcore_sdio
-	/bin/touch /etc/wifi-configured
+	/bin/touch /etc/af-conn/wifi-configured
 fi
