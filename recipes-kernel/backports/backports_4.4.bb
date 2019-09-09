@@ -7,8 +7,8 @@ SECTION = "kernel/modules"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 
-SRC_URI = "git://git@github.com/KibanLabsInc/backports-ti-wl18xx;protocol=ssh;branch=upstream_44"
-SRCREV = "3ce8650026213e906c9d0ca541232aa347756300"
+SRC_URI = "git://git@github.com/AferoCE/backports-ti-wl18xx;protocol=ssh"
+SRCREV = "01fc65e54ba91fdd408776c1337f12e8efae4dba"
 
 SRC_URI[md5sum] = "dca31e267b7cdad8fa4ea32960ef7993"
 SRC_URI[sha256sum] = "df479dc8f7c25ca4ce47ecd85707f44d3e55524401daf09f48b9b7188eab22a1"
