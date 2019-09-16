@@ -61,7 +61,7 @@ list_stats() {
 
 clean_logs() {
     local cleanlist_file=/tmp/log_clean_list
-    /usr/bin/find ${LOG_DIR} -name log-\*\.gz | sort -n > ${cleanlist_file}
+    /usr/bin/find -L ${LOG_DIR} -name log-\*\.gz | sort -n > ${cleanlist_file}
     local num_logs=`$WC_CMD -l ${cleanlist_file} | $AWK_CMD '{ print $1 }'`
     local num_to_delete=`$EXPR_CMD ${num_logs} - ${FILE_LIMIT}`
     if [ ${num_to_delete} -gt 0 ] ; then

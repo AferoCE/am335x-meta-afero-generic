@@ -9,7 +9,7 @@ LIC_FILES_CHKSUM = ""
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
 
 SRC_URI = "git://git@github.com/AferoCE/am335x-binaries-af-edge;protocol=ssh"
-SRCREV = "caac09be411db04947481d381db7b5f3fa6d70ae"
+SRCREV = "97b057f1133b5686fa0821bc0fbca6e33dfc871d"
 SRC_URI += " file://edged.service"
 SRC_URI += " file://edge_watcher"
 
