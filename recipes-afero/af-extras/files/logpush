@@ -21,6 +21,9 @@ WC_CMD=/usr/bin/wc
 ECHO_CMD=/bin/echo
 LS_CMD=/bin/ls
 ATTRC_CMD=/usr/bin/attrc
+DU_CMD=/usr/bin/du
+DF_CMD=/bin/df
+
 
 update_time() {
     local date_format="+%Y-%m-%d %H:%M:%S"
@@ -69,6 +72,44 @@ clean_logs() {
         $HEAD_CMD -${num_to_delete} ${cleanlist_file} | \
             /usr/bin/xargs $RM_CMD -f {} \;
     fi
+
+    # Check to see if the log disk usage exceeds the threshold limit,
+    # delete more log files if the limit exceeds
+    # - find out how much disk space is used up by the log files
+    # The log file will be different depending how chatty the deamons are,
+    # assuming average size of log file is 10K => 100 files = 1 MB
+    local log_mem_usage=`$DU_CMD -L -k ${LOG_DIR} | $AWK_CMD '{ print $1 }'`
+    local max_threshold=`$EXPR_CMD ${LOG_MEMORY_MAX_THRESHOLD} \* 1000`
+    if [ ${log_mem_usage} -gt ${max_threshold} ] ; then
+        $LOGGER_CMD "log disk usage $log_mem_usage (KB), which exceeds the limit of $max_threshold (KB);"
+        /usr/bin/find -L ${LOG_DIR} -name log-\*\.gz | sort -n > ${cleanlist_file}
+        local mem_diff=`$EXPR_CMD ${log_mem_usage} - ${max_threshold}`
+        local num_to_delete=`$EXPR_CMD ${mem_diff} / 10000`
+
+        $HEAD_CMD -${num_to_delete} ${cleanlist_file} | /usr/bin/xargs $RM_CMD -f {} \;
+    fi
+
+    # delete files to ensure that the minimum amount of disk space is available
+    local total_mem_left=`$DF_CMD -m --output=avail ${LOG_DIR} | $AWK_CMD '{if (NR == 2) print $1 }'`
+    if [ ${LOG_MEMORY_MIN_AVAIL} -gt ${total_mem_left} ] ; then
+        local min_avail=`$EXPR_CMD ${LOG_MEMORY_MIN_AVAIL} \* 1000`
+        local i
+        local total_KB_mem=0
+        local file_KB_mem=0
+        for i in  `/usr/bin/find -L ${LOG_DIR} -name \*\.txt | sort -n`; do
+            file_KB_mem=`$DU_CMD -L -k $i | $AWK_CMD '{ print $1 }'`
+            total_KB_mem=`$EXPR_CMD ${total_KB_mem} + ${file_KB_mem}`
+
+            # delete the file
+            $RM_CMD -f $i
+
+            if [ ${total_KB_mem} -gt ${min_avail} ] ; then
+                break
+            fi
+        done
+    fi
+
+    # delete the cleanlist file
     $RM_CMD ${cleanlist_file}
 }
 

@@ -5,6 +5,7 @@ SECTION = "examples"
 DEPENDS = ""
 LICENSE = "CLOSED"
 LIC_FILES_CHKSUM = ""
+RDEPENDS_${PN} += "bash"
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
 
@@ -35,3 +36,26 @@ do_install() {
     
 }
 
+
+#*****************************************************************************************
+#script run immediately after installing a package on the target or during image creation
+# - Note: shell is supported
+pkg_postinst_${PN}(){
+#!/bin/sh -e
+    echo "Checking for OTA record files"
+    FULL_OTA_REC_FILE="${TMPDIR}/full_ota_record.json"
+    APP_OTA_REC_FILE="${TMPDIR}/app_ota_record.json"
+
+    if [ -e $FULL_OTA_REC_FILE ]; then
+       echo " *** find the full_ota_record.json file, install it ***"
+       cp $FULL_OTA_REC_FILE  $D${sysconfdir}/
+    else
+        echo "WARNING: Afero OTA Record file doesn't exists. Run python script"
+        echo "Run script: python partner-ota-hub-uploader.py -n <buildNumber> --createOTARecord -c partner-ota-conf.json"
+    fi
+
+    if [ -e $APP_OTA_REC_FILE ]; then
+       echo " *** find the app_ota_record.json file, install it ***"
+       cp $APP_OTA_REC_FILE  $D${sysconfdir}/
+     fi
+}
